@@ -1,4 +1,4 @@
-# Wrapper class to support multi-level trees in Pandas
+# Aggregation over multi-level tree structures in Pandas
 
 While Pandas has extensive *multi-index* capabilities, which can also be arranged in a hierarchical structure, the assumption is / seems to be that these indexes are for independent dimensions. Every index in a multi-index represents a *different* dimension.
 

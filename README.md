@@ -1,8 +1,8 @@
 # Aggregation over multi-level tree structures in Pandas
 
-While Pandas has extensive *multi-index* capabilities, which can also be arranged in a hierarchical structure, the assumption is / seems to be that these indexes are for independent dimensions. Every index in a multi-index represents a *different* dimension.
+While Pandas has extensive *multi-index* capabilities, which can also be mutually arranged in a hierarchical structure, the assumption seems to be that each of these indexes represents an *independent* dimension. 
 
-This class is intended for cases where a *single* dimension fits a tree structure, and you want to aggregate across that dimension ('rollups', etc). 
+This class is intended for cases where a *single* dimension is structured as a tree (i.e., a directed acyclic graph where each child has a single parent), and you want to aggregate across that dimension ('rollups', etc). 
 
 Possible applications:
 * org chart, where you have multiple employees per dept, and departments organized into a tree

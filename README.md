@@ -16,7 +16,7 @@ Previously, for these cases I used to repeat the groupby on the dimension identi
 
 This class uses an entirely different approach: in the constructor, all paths in the hierarchy are retrieved using a networkx DiGraph. This way, we map each item in the hierarchy to all of its ancestors, using pandas' melt to create a flat normalized form. 
 
-Since subclassing DataFrames is quite challenging, the class simply wraps a DataFrame that defines the hierarchy (self.def_df). Composition over inheritance, anyway.
+Since subclassing DataFrame is quite challenging, the class simply wraps a DataFrame that defines the hierarchy (self.def_df). Composition over inheritance, anyway.
 
 ### Example
 

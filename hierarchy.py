@@ -72,11 +72,13 @@ class Hierarchy:
     #  struc_field must be delimited by '|' (or specify delim)
     #  if struc_field is a list of column names, we will build temporary struc_field from them
     def from_structure(cls, def_df, name, struc_field, root=None, delim='|'):
-        df = def_df.copy()
+        df = def_df.fillna('')
         keys = list(def_df.keys())
 
         # if necessary, concatenate column values into single struc field deli with '|'
-        if isinstance(struc_field, list):    
+        if isinstance(struc_field, list):
+            print(df)
+            print(struc_field)
             df['struc'] = df.apply(
                 lambda row: delim.join([row[col] for col in struc_field if row[col]]), 
                 axis=1)
@@ -84,7 +86,9 @@ class Hierarchy:
 
         # struc_to_name: struc -> name
         struc_to_name = (df.copy()[[name, struc_field]]
-                         .rename(columns={struc_field: 'parent_' + struc_field, name: PARENT_PREFIX + name}))
+            .append({name: 'root', struc_field: 'root'}, ignore_index=True)
+            .rename(columns={struc_field: 'parent_' + struc_field, name: PARENT_PREFIX + name})
+        )
 
         # parent_struc = struc minus last/leaf node in |-delimited list 
         def strip_from_right(row):
@@ -92,9 +96,15 @@ class Hierarchy:
             return row[struc_field][:index] if index != -1 else 'root'
         #
         df['parent_' + struc_field] = df.apply(strip_from_right, axis=1)
+
         df = (df.merge(struc_to_name, on='parent_' + struc_field, how='left')
-                .fillna('root').replace({'root': root})
-                .reindex(keys + [PARENT_PREFIX + name, struc_field], axis=1))    # drop temp columns, keep only parent col
+                .replace({'root': root})
+                .reindex(keys + [PARENT_PREFIX + name], axis=1))    # drop temp columns, keep only parent col
+
+        errmask = df.parent_dept.isnull()
+        if not df[errmask].empty:
+            print('Error in source data, no parent found %s - skipping' % df[errmask])
+        df = df[~errmask]
 
         return cls(df, name, root)
 
@@ -176,3 +186,68 @@ if __name__ == "__main__":
         .reset_index()
         .rename(columns={'ancestor_dept':'dept','pnr':'p_count'}))
     print(aggcount)
+
+    print('\n\nSecond example, using from_structure\nsource df:')
+    src_df = pd.DataFrame.from_dict({
+        'labels':  {0: 'RvB',
+                    1: 'RvB|Sales & Marketing',
+                    2: 'RvB|Sales & Marketing|Sales',
+                    3: 'RvB|Sales & Marketing|Marketing',
+                    4: 'RvB|Sales & Marketing|Marketing|Marketing Support',
+                    5: 'RvB|Finance & ICT',
+                    6: 'RvB|Finance & ICT|Finance'},
+        'dept':    {0: 10, 1: 100, 2: 110, 3: 120, 4: 121, 5: 200, 6: 210},
+        'mgr':     {0: 'John',
+                    1: 'Sally',
+                    2: 'Ruben',
+                    3: 'Holly',
+                    4: 'Max',
+                    5: 'Mimi',
+                    6: 'Astrid'}})
+    print(src_df)
+    h2 = Hierarchy.from_structure(src_df, 'dept', 'labels', root='0')
+    print('\ndef_df frame:')
+    print(h2.def_df)
+
+    print('\n\nThird example, using from_structure, separate fields\nsource df:')
+    src_df = pd.DataFrame.from_dict(
+        {'label1': {0: 'RvB',
+        1: 'RvB',
+        2: 'RvB',
+        3: 'RvB',
+        4: 'RvB',
+        5: 'RvB',
+        6: 'RvB'},
+        'label2': {0: '',
+        1: 'Sales & Marketing',
+        2: 'Sales & Marketing',
+        3: 'Sales & Marketing',
+        4: 'Sales & Marketing',
+        5: 'Finance & ICT',
+        6: 'Finance & ICT'},
+        'label3': {0: '',
+        1: '',
+        2: 'Sales',
+        3: 'Marketing',
+        4: 'Marketing',
+        5: '',
+        6: 'Finance'},
+        'label4': {0: '',
+        1: '',
+        2: '',
+        3: '',
+        4: 'Marketing Support',
+        5: '',
+        6: ''},
+        'dept': {0: 10, 1: 100, 2: 110, 3: 120, 4: 121, 5: 200, 6: 210},
+        'mgr': {0: 'John',
+        1: 'Sally',
+        2: 'Ruben',
+        3: 'Holly',
+        4: 'Max',
+        5: 'Mimi',
+        6: 'Astrid'}})
+    print(src_df)
+    h2 = Hierarchy.from_structure(src_df, 'dept', ['label1','label2','label3','label4'], root='0')
+    print('\ndef_df frame:')
+    print(h2.def_df)

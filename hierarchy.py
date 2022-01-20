@@ -24,15 +24,11 @@ class Hierarchy:
     # level: added by constructor (1-based)
 
     def __init__(self, def_df, name, root=None):
-        self.name = name
-        self.mandatory = True                       # pers without a valid link to this hierarchy are dropped
-        #
-        parent_name = PARENT_PREFIX + self.name
-        self.root_node = def_df.at[0, parent_name] if root is None else root
         self.def_df = def_df.copy()
         self.def_df[IX_COL] = def_df[IX_COL] if IX_COL in def_df.keys() else def_df.index       # add 'h_ix'
-        # set up empty .aggs_df with <name> as primary key
-        self.aggs_df = self.def_df.copy()[[name]]
+        self.name = name
+        parent_name = PARENT_PREFIX + self.name
+        self.root_node = def_df.at[0, parent_name] if root is None else root
 
         if not set([self.name, parent_name]).issubset(def_df.keys()):
             raise(ValueError('Child or parent column missing'))
@@ -77,8 +73,6 @@ class Hierarchy:
 
         # if necessary, concatenate column values into single struc field deli with '|'
         if isinstance(struc_field, list):
-            print(df)
-            print(struc_field)
             df['struc'] = df.apply(
                 lambda row: delim.join([row[col] for col in struc_field if row[col]]), 
                 axis=1)
@@ -101,7 +95,7 @@ class Hierarchy:
                 .replace({'root': root})
                 .reindex(keys + [PARENT_PREFIX + name], axis=1))    # drop temp columns, keep only parent col
 
-        errmask = df.parent_dept.isnull()
+        errmask = df[PARENT_PREFIX + name].isnull()
         if not df[errmask].empty:
             print('Error in source data, no parent found %s - skipping' % df[errmask])
         df = df[~errmask]
@@ -133,9 +127,25 @@ class Hierarchy:
                 .reindex(list(cols) + add_cols, axis=1))
 
     # aggregate over df.val_col with agg_fn_name ('count','sum')
-    # add result to self.aggs_df.agg_col
+    # add result to self.def_df (inplace!)
     #
     def add_to_def_df(self, df, val_col, agg_col, agg_fn_name):
+        tdf = df[[self.name, val_col]]
+        tdf = (self.expand(tdf)
+                .groupby(self.name)
+                .agg(agg_fn_name)      # eg, 'count', 'sum'
+                .reset_index()
+                .rename(columns={val_col: agg_col})
+                .set_index(self.name))
+
+        self.def_df[agg_col] = None
+        self.def_df.set_index('oe', inplace=True)   # update needs the self.name as index in both dfs
+        self.def_df.update(tdf, overwrite=False)
+        self.def_df.reset_index(inplace=True)
+        self.def_df.fillna({'pers_count':0}, inplace=True)
+        self.def_df[agg_col] = self.def_df[agg_col].astype('int', errors='ignore')
+
+        ''' # simpler, but REPLACES self.def_df, turning existing references stale
         tdf = df[[self.name, val_col]]
         tdf = (self.expand(tdf)
                 .groupby(self.name)
@@ -145,6 +155,7 @@ class Hierarchy:
         self.def_df = (self.def_df
                 .merge(tdf, on=self.name, how='left')
                 .fillna(''))
+        '''
 
     # wrap pers_type_df (one row per pers) in org context: widen with def_df columns & intersperse with def_df rows
     #   rename_spec is to align columns in def_df to source df
@@ -167,11 +178,15 @@ if __name__ == "__main__":
         columns=['dept','parent_dept'])
     root_node = '0'
     org['manager'] = 'Mgr_' + org.dept.str.upper()
+    print('\nSource dataframe org:')
+    print(org)
     pers = pd.DataFrame(list(zip( 
         ['1','12','121','121','130'], 
         ['456','573','574','578','666'],
         ['John','Peter','Paul','Mary','George'])), 
         columns=['dept','pnr','name'])
+    print('\nSource dataframe pers:')
+    print(pers)
 
     h = Hierarchy(org, 'dept', '0')
     print('\nExample def_df frame in Hierarchy h:')

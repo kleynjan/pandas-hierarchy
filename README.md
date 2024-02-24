@@ -1,4 +1,4 @@
-# Hierachy.py: aggregation over tree structures in Pandas
+# Hierarchy.py: aggregation over tree structures in Pandas
 
 While Pandas has extensive *multi-index* capabilities, which can also be mutually arranged in a hierarchical structure, the assumption seems to be that each of these indexes represents an *independent* dimension. 
 
